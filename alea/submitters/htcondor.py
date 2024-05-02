@@ -313,18 +313,18 @@ class SubmitterHTCondor(Submitter):
             "file://{}".format(self.statistical_model_config_filename),
         )
         # Add run_toymc_wrapper
-        self.run_toymc_wrapper = File(self.top_dir / "alea/submitters/run_toymc_wrapper.sh")
+        self.run_toymc_wrapper = File("run_toymc_wrapper.sh")
         rc.add_replica(
             "local",
             "run_toymc_wrapper.sh",
             "file://{}".format(self.top_dir / "alea/submitters/run_toymc_wrapper.sh"),
         )
         # Add alea-run_toymc
-        self.alea_run_toymc = File(self.top_dir / "bin//alea-run_toymc")
+        self.alea_run_toymc = File("alea-run_toymc")
         rc.add_replica(
             "local",
             "alea-run_toymc",
-            "file://{}".format(self.top_dir / "bin//alea-run_toymc"),
+            "file://{}".format(self.top_dir / "bin/alea-run_toymc"),
         )
 
         return rc
