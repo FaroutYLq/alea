@@ -533,8 +533,9 @@ class SubmitterHTCondor(Submitter):
         """Serve as the main function to submit the workflow."""
         self._check_workflow_exists()
 
+        #  0o755 means read/write/execute for owner, read/execute for everyone else
         os.makedirs(self._generated_dir(), 0o755)
-        os.makedirs(self.runs_dir, 0o755)
+        os.makedirs(self.runs_dir, 0o755, exist_ok=True)
         
         self._generate_workflow()
         self._plan_and_submit()
