@@ -24,7 +24,6 @@ class SubmitterHTCondor(Submitter):
 
     def __init__(self, *args, **kwargs):
         # General start
-        super().__init__(*args, **kwargs)
         self.name = self.__class__.__name__
         self.htcondor_configurations = kwargs.get("htcondor_configurations", {})
         self.singularity_image = self.htcondor_configurations.pop(
