@@ -1,9 +1,5 @@
-import subprocess
 import os
 import getpass
-import threading
-import tempfile
-import time
 import tarfile
 import shlex
 import json
@@ -30,34 +26,26 @@ class SubmitterHTCondor(Submitter):
         # General start
         super().__init__(*args, **kwargs)
         self.name = self.__class__.__name__
-        self.htcondor_configurations = kwargs.get("slurm_configurations", {})
+        self.htcondor_configurations = kwargs.get("htcondor_configurations", {})
         self.singularity_image = self.htcondor_configurations.pop(
             "singularity_image", DEFAULT_IMAGE
         )
         self._initial_dir = os.getcwd()
         self.work_dir = WORK_DIR
+        self.runs_dir = os.path.join(self.work_dir, "runs")
         self.top_dir = TOP_DIR
-        self._output_folder = kwargs.get("outputfolder", "alea_output_folder")
-        self._setup_wf_id()
+        self.debug = kwargs.get("debug", False)
+
+        # User can provide a name for the workflow, otherwise it will be the current time
+        self._setup_wf_id() 
 
         # Job input configurations
         self.running_configuration_filename = kwargs.get("running_configuration_filename")
-        self.statistical_model_config = kwargs.get("statistical_model_config")
-        self.template_path = self.htcondor_configurations.pop("template_path", None)
-        assert self.template_path, "Please provide a template path."
-        # This path must exists locally, and it will be used to stage the input files
-        assert os.path.exists(self.template_path), f"Path {self.template_path} does not exist."
-        # This folder must not have any subdirectories
-        assert not self._contains_subdirectories(
-            self.template_path
-        ), f"Path {self.template_path} must not have subdirectories. Please dump all files in one folder."
-        # Make tarball of the templates if not exists
-        self.template_tarball_filename = self.htcondor_configurations.pop(
-            "template_tarball_filename", None
-        )
-        assert self.template_tarball_filename, "Please provide a template tarball filename."
-        if not os.path.exists(self.template_tarball_filename):
-            self._tar_h5_files(self.template_path, self.template_tarball_filename)
+        self.statistical_model_config_filename = kwargs.get("statistical_model_config")
+
+        # Handling templates as part of the inputs
+        self._validate_template_path()
+        self._make_template_tarball()
 
         # Resources configurations
         self.request_cpus = self.htcondor_configurations.pop("request_cpus", 1)
@@ -72,8 +60,21 @@ class SubmitterHTCondor(Submitter):
         # Pegasus configurations
         self._pegasus_properties()
 
-        # Workflow directory
-        self.wf_dir = os.path.join(self._generated_dir(), "workflows")
+        # Pegasus workflow directory
+        self.wf_dir = os.path.join(self.runs_dir, self._wf_id)
+
+
+    def _validate_template_path(self):
+        """Validate the template path."""
+        self.template_path = self.htcondor_configurations.pop("template_path", None)
+        assert self.template_path, "Please provide a template path."
+        # This path must exists locally, and it will be used to stage the input files
+        assert os.path.exists(self.template_path), f"Path {self.template_path} does not exist."
+        # This folder must not have any subdirectories
+        assert not self._contains_subdirectories(
+            self.template_path
+        ), f"Path {self.template_path} must not have subdirectories. Please dump all files in one folder."
+
 
     def _tar_h5_files(self, directory, output_filename="templates.tar.gz"):
         """Tar all templates in the directory into a tarball."""
@@ -88,8 +89,21 @@ class SubmitterHTCondor(Submitter):
                         # Add the file to the tar, specifying the arcname to avoid storing full path
                         tar.add(filepath, arcname=os.path.relpath(filepath, start=directory))
 
+
+    def _make_template_tarball(self):
+        """Make tarball of the templates if not exists."""
+        self.template_tarball_filename = self.htcondor_configurations.pop(
+            "template_tarball_filename", None
+        )
+        assert self.template_tarball_filename, "Please provide a template tarball filename."
+        if not os.path.exists(self.template_tarball_filename):
+            self._tar_h5_files(self.template_path, self.template_tarball_filename)
+    
+    
     def _generated_dir(self, work_dir=WORK_DIR):
+        """Directory for generated files"""
         return os.path.join(work_dir, "generated", self._wf_id)
+
 
     def _contains_subdirectories(self, directory):
         """Check if the specified directory contains any subdirectories.
@@ -125,22 +139,6 @@ class SubmitterHTCondor(Submitter):
             self.wf_id = self._wf_id
         else:
             self.wf_id = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-
-    def _validate_x509_proxy(self, min_valid_hours=20):
-        """Ensure $HOME/user_cert exists and has enough time left.
-
-        This is necessary only if you are going to use Rucio.
-
-        """
-        logger.debug("Verifying that the ~/user_cert proxy has enough lifetime")
-        shell = Shell("grid-proxy-info -timeleft -file ~/user_cert")
-        shell.run()
-        valid_hours = int(shell.get_outerr()) / 60 / 60
-        if valid_hours < min_valid_hours:
-            raise RuntimeError(
-                "User proxy is only valid for %d hours. Minimum required is %d hours."
-                % (valid_hours, min_valid_hours)
-            )
 
     def _pegasus_properties(self):
         """Writes the file pegasus.properties.
@@ -226,10 +224,6 @@ class SubmitterHTCondor(Submitter):
             LD_LIBRARY_PATH="/cvmfs/xenon.opensciencegrid.org/releases/nT/development/anaconda/envs/XENONnT_development/lib64:/cvmfs/xenon.opensciencegrid.org/releases/nT/development/anaconda/envs/XENONnT_development/lib",
         )
         local.add_profiles(Namespace.ENV, PEGASUS_SUBMITTING_USER=os.environ["USER"])
-        # TODO: One day we might need rucio
-        # local.add_profiles(Namespace.ENV, X509_USER_PROXY=os.environ['HOME'] + '/user_cert')
-        # local.add_profiles(Namespace.ENV, RUCIO_LOGGING_FORMAT="%(asctime)s  %(levelname)s  %(message)s")
-        # local.add_profiles(Namespace.ENV, RUCIO_ACCOUNT='production')
 
         # Staging sites: for XENON it is physically at dCache in UChicago
         # You will be able to download results from there via gfal commands
@@ -263,14 +257,6 @@ class SubmitterHTCondor(Submitter):
         condorpool.add_profiles(Namespace.ENV, PERL5LIB="")
         condorpool.add_profiles(Namespace.ENV, LD_LIBRARY_PATH="")
         condorpool.add_profiles(Namespace.ENV, PEGASUS_SUBMITTING_USER=os.environ["USER"])
-        # TODO: One day we might need rucio
-        # We need the x509 proxy for Rucio transfers
-        # condorpool.add_profiles(Namespace.CONDOR, key='x509userproxy',
-        #                        value=os.environ['HOME'] + '/user_cert')
-        # condorpool.add_profiles(Namespace.ENV, RUCIO_LOGGING_FORMAT="%(asctime)s  %(levelname)s  %(message)s")
-        # condorpool.add_profiles(Namespace.ENV, RUCIO_ACCOUNT='production')
-
-        # TODO: not sure if we want to move the resource requirements here, or do it in job
 
         # Add the sites to the SiteCatalog
         sc.add_sites(local, staging_davs, condorpool)
@@ -285,7 +271,7 @@ class SubmitterHTCondor(Submitter):
         run_toymc_wrapper = Transformation(
             name="alea-run_toymc",
             site="local",
-            pfn=TOP_DIR / "bin/alea/submitters/run_toymc_wrapper.sh",
+            pfn=self.top_dir / "bin/alea/submitters/run_toymc_wrapper.sh",
             is_stageable=True,
             arch=Arch.X86_64,
         ).add_pegasus_profile(clusters_size=cluster_size)
@@ -308,32 +294,44 @@ class SubmitterHTCondor(Submitter):
         rc = ReplicaCatalog()
 
         # Add the templates
+        self.template_tarball = File(self.template_tarball_filename)
         rc.add_replica(
             "local",
             self.template_tarball_filename,
             "file://{}".format(self.template_tarball_filename),
         )
         # Add the yaml files
+        self.running_configuration = File(self.running_configuration_filename)
         rc.add_replica(
             "local",
             self.running_configuration_filename,
             "file://{}".format(self.running_configuration_filename),
         )
+        self.statistical_model_config = File(self.statistical_model_config_filename)
         rc.add_replica(
             "local",
-            self.statistical_model_config,
-            "file://{}".format(self.statistical_model_config),
+            self.statistical_model_config_filename,
+            "file://{}".format(self.statistical_model_config_filename),
+        )
+        # Add run_toymc_wrapper
+        self.run_toymc_wrapper = File(self.top_dir / "alea/submitters/run_toymc_wrapper.sh")
+        rc.add_replica(
+            "local",
+            "run_toymc_wrapper.sh",
+            "file://{}".format(self.top_dir / "alea/submitters/run_toymc_wrapper.sh"),
         )
         # Add alea-run_toymc
+        self.alea_run_toymc = File(self.top_dir / "bin//alea-run_toymc")
         rc.add_replica(
             "local",
             "alea-run_toymc",
-            "file://{}".format(TOP_DIR / "bin/alea/submitters/run_toymc_wrapper.sh"),
+            "file://{}".format(self.top_dir / "bin//alea-run_toymc"),
         )
 
         return rc
 
     def _generate_workflow(self, name="alea-run_toymc"):
+        # Initialize the workflow
         self.wf = Workflow("alea-workflow")
         self.sc = self._generate_sc()
         self.tc = self._generate_tc()
@@ -345,8 +343,8 @@ class SubmitterHTCondor(Submitter):
         # _last_output_filename for example: /project/lgrandi/yuanlq/alea_outputs/b8mini/toymc_power_cevns_livetime_1.22_0.50_b8_rate_1.00_0.h5
         # _script for example: python3 /home/yuanlq/.local/bin/alea-run_toymc --statistical_model alea.models.BlueiceExtendedModel --poi b8_rate_multiplier --hypotheses '["free","zero","true"]' --n_mc 50 --common_hypothesis None --generate_values '{"b8_rate_multiplier":1.0}' --nominal_values '{"livetime_sr0":1.221,"livetime_sr1":0.5}' --statistical_model_config lq_b8_cevns_statistical_model.yaml --parameter_definition None --statistical_model_args '{"template_path":"/project2/lgrandi/binference_common/nt_cevns_templates"}' --likelihood_config None --compute_confidence_interval False --confidence_level 0.9000 --confidence_interval_kind central --toydata_mode generate_and_store --toydata_filename /project/lgrandi/yuanlq/alea_outputs/b8mini/toyfile_cevns_livetime_1.22_0.50_b8_rate_1.00_0.h5 --only_toydata False --output_filename /project/lgrandi/yuanlq/alea_outputs/b8mini/toymc_power_cevns_livetime_1.22_0.50_b8_rate_1.00_0.h5 --seed None --metadata None
         for jobid, (_script, _) in enumerate(self.combined_tickets_generator()):
+            # Reorganize the script to get the executable and arguments, in which the paths are corrected
             executable, args_dict = self._reorganize_script(_script)
-
             logger.info(f"Adding job {jobid} to the workflow")
             logger.debug(f"Naked Script: {_script}")
             logger.debug(f"Output: {args_dict['output_filename']}")
@@ -354,6 +352,7 @@ class SubmitterHTCondor(Submitter):
             logger.debug(f"Toydata: {args_dict['toydata_filename']}")
             logger.debug(f"Arguments: {args_dict}")
 
+            # Create a job with base requirements
             job = self._initialize_job(
                 name=name,
                 cores=self.request_cpus,
@@ -362,22 +361,32 @@ class SubmitterHTCondor(Submitter):
             )
             requirements = self._make_requirements()
             job.add_profiles(Namespace.CONDOR, "requirements", requirements)
-            for ifile in self._get_input_files():
-                job.add_inputs(ifile)
+            
+            # Add the inputs and outputs
+            job.add_inputs(
+                self.template_tarball, 
+                self.running_configuration, 
+                self.statistical_model_config, 
+                self.run_toymc_wrapper, 
+                self.alea_run_toymc
+            )
+            job.add_outputs(File(args_dict["output_filename"]), stage_out=True)
+            job.add_outputs(File(args_dict['toydata_filename']), stage_out=True)
 
-            # FIXME: This may be problematic, as we are adding the output files here
-            job.add_outputs(File(args_dict["output_filename"]))
-            job.add_outputs(File(args_dict["toydata_filename"]))
-
+            # Add the arguments into the job
             _extract_all_to_tuple = lambda d: tuple(d[key] for key in d.keys())
             args_tuple = _extract_all_to_tuple(args_dict)
             job.add_args(*args_tuple)
-
+            
+            # Add the job to the workflow
             self.wf.add_job(job)
-            self.wf.add_replica_catalog(self.rc)
-            self.wf.add_transformation_catalog(self.tc)
-            self.wf.add_site_catalog(self.sc)
-            self.wf.write()
+
+        # Finalize the workflow
+        os.chdir(self._generated_dir())
+        self.wf.add_replica_catalog(self.rc)
+        self.wf.add_transformation_catalog(self.tc)
+        self.wf.add_site_catalog(self.sc)
+        self.wf.write()
 
     def _initialize_job(
         self, name="alea-run_toymc", run_on_submit_node=False, cores=1, memory=1_700, disk=1_000_000
@@ -490,14 +499,7 @@ class SubmitterHTCondor(Submitter):
 
     def _get_file_name(file_path):
         return os.path.basename(file_path)
-
-    def _get_input_files(self):
-        """Get the input files for the job."""
-        input_files = []
-        for root, _, files in os.walk(self.template_path):
-            for f in files:
-                input_files.append(File(f))
-
+    
     def _us_sites_only(self):
         raise NotImplementedError
 
@@ -506,6 +508,12 @@ class SubmitterHTCondor(Submitter):
 
     def _this_site_only(self):
         raise NotImplementedError
+    
+    def _check_workflow_exists(self):
+        """Check if the workflow already exists."""
+        if os.path.exists(self.wf_dir):
+            logger.error(f"Workflow already exists at {self.wf_dir}. Exiting.")
+            return
 
     def _plan_and_submit(self):
         """Plan and submit the workflow."""
@@ -513,7 +521,7 @@ class SubmitterHTCondor(Submitter):
         self.wf.plan(
             submit=not self.debug,
             sites=["condorpool"],
-            verbose=3 if self.debug else 0,
+            verbose=3,
             staging_sites={"condorpool": "staging-davs"},
             output_sites=["local"],
             dir=os.path.dirname(self.wf_dir),
@@ -524,96 +532,14 @@ class SubmitterHTCondor(Submitter):
 
     def submit(self, **kwargs):
         """Serve as the main function to submit the workflow."""
-        # Return to initial dir, as we are done.
-        logger.info("We are done. Returning to initial directory.")
-        os.chdir(self._initial_dir)
+        self._check_workflow_exists()
 
+        os.makedirs(self._generated_dir(), 0o755)
+        os.makedirs(self.runs_dir, 0o755)
+        
         self._generate_workflow()
         self._plan_and_submit()
 
+        # Return to initial dir, as we are done.
+        logger.info("We are done. Returning to initial directory.")
         os.chdir(self._initial_dir)
-
-
-class Shell(object):
-    """Provides a shell callout with buffered stdout/stderr, error handling and timeout."""
-
-    def __init__(self, cmd, timeout_secs=1 * 60 * 60, log_cmd=False, log_outerr=False):
-        self._cmd = cmd
-        self._timeout_secs = timeout_secs
-        self._log_cmd = log_cmd
-        self._log_outerr = log_outerr
-        self._process = None
-        self._out_file = None
-        self._outerr = ""
-        self._duration = 0.0
-
-    def run(self):
-        def target():
-
-            self._process = subprocess.Popen(
-                self._cmd,
-                shell=True,
-                stdout=self._out_file,
-                stderr=subprocess.STDOUT,
-                preexec_fn=os.setpgrp,
-            )
-            self._process.communicate()
-
-        if self._log_cmd:
-            print(self._cmd)
-
-        # temp file for the stdout/stderr
-        self._out_file = tempfile.TemporaryFile(prefix="outsource-", suffix=".out")
-
-        ts_start = time.time()
-
-        thread = threading.Thread(target=target)
-        thread.start()
-
-        thread.join(self._timeout_secs)
-        if thread.is_alive():
-            # do our best to kill the whole process group
-            try:
-                kill_cmd = "kill -TERM -%d" % (os.getpgid(self._process.pid))
-                kp = subprocess.Popen(kill_cmd, shell=True)
-                kp.communicate()
-                self._process.terminate()
-            except:
-                pass
-            thread.join()
-            # log the output
-            self._out_file.seek(0)
-            stdout = self._out_file.read().decode("utf-8").strip()
-            if self._log_outerr and len(stdout) > 0:
-                print(stdout)
-            self._out_file.close()
-            raise RuntimeError(
-                "Command timed out after %d seconds: %s" % (self._timeout_secs, self._cmd)
-            )
-
-        self._duration = time.time() - ts_start
-
-        # log the output
-        self._out_file.seek(0)
-        self._outerr = self._out_file.read().decode("utf-8").strip()
-        if self._log_outerr and len(self._outerr) > 0:
-            print(self._outerr)
-        self._out_file.close()
-
-        if self._process.returncode != 0:
-            raise RuntimeError(
-                "Command exited with non-zero exit code (%d): %s\n%s"
-                % (self._process.returncode, self._cmd, self._outerr)
-            )
-
-    def get_outerr(self):
-        """Returns the combined stdout and stderr from the command."""
-        return self._outerr
-
-    def get_exit_code(self):
-        """Returns the exit code from the process."""
-        return self._process.returncode
-
-    def get_duration(self):
-        """Returns the timing of the command (seconds)"""
-        return self._duration
