@@ -10,7 +10,7 @@ from Pegasus.api import *
 from datetime import datetime
 
 DEFAULT_IMAGE = "/cvmfs/singularity.opensciencegrid.org/xenonnt/base-environment:latest"
-WORK_DIR = "/scratch/$USER/workflows"
+WORK_DIR = f"/scratch/{getpass.getuser()}/workflows"
 TOP_DIR = Path(__file__).resolve().parent
 
 
@@ -39,7 +39,7 @@ class SubmitterHTCondor(Submitter):
         self._setup_wf_id() 
 
         # Job input configurations
-        self.running_configuration_filename = kwargs.get("running_configuration_filename")
+        self.running_configuration_filename = self.htcondor_configurations.pop("running_configuration_filename")
         self.statistical_model_config_filename = kwargs.get("statistical_model_config")
 
         # Handling templates as part of the inputs
