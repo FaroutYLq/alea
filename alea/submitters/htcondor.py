@@ -11,7 +11,7 @@ from datetime import datetime
 
 DEFAULT_IMAGE = "/cvmfs/singularity.opensciencegrid.org/xenonnt/base-environment:latest"
 WORK_DIR = f"/scratch/{getpass.getuser()}/workflows"
-TOP_DIR = Path(__file__).resolve().parent
+TOP_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 # Set up logging
@@ -294,20 +294,20 @@ class SubmitterHTCondor(Submitter):
         self.f_template_tarball = File(self.template_tarball_filename)
         rc.add_replica(
             "local",
-            self.template_tarball_filename,
+            self._get_file_name(self.template_tarball_filename),
             "file://{}".format(self.template_tarball_filename),
         )
         # Add the yaml files
         self.f_running_configuration = File(self.running_configuration_filename)
         rc.add_replica(
             "local",
-            self.running_configuration_filename,
+            self._get_file_name(self.running_configuration_filename),
             "file://{}".format(self.running_configuration_filename),
         )
         self.f_statistical_model_config = File(self.statistical_model_config_filename)
         rc.add_replica(
             "local",
-            self.statistical_model_config_filename,
+            self._get_file_name(self.statistical_model_config_filename),
             "file://{}".format(self.statistical_model_config_filename),
         )
         # Add run_toymc_wrapper
