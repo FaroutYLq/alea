@@ -453,10 +453,10 @@ class SubmitterHTCondor(Submitter):
         args_dict["statistical_model_args"]["template_path"] = "templates/"
 
         toydata_filename = self._get_file_name(args_dict["toydata_filename"])
-        args_dict["toydata_filename"] = os.join("output_folder", toydata_filename)
+        args_dict["toydata_filename"] = os.path.join("output_folder", toydata_filename)
 
         output_filename = self._get_file_name(args_dict["output_filename"])
-        args_dict["output_filename"] = os.join("output_folder", output_filename)
+        args_dict["output_filename"] = os.path.join("output_folder", output_filename)
 
         return args_dict
 
