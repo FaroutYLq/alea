@@ -291,23 +291,23 @@ class SubmitterHTCondor(Submitter):
         rc = ReplicaCatalog()
 
         # Add the templates
-        self.f_template_tarball = File(self.template_tarball_filename)
+        self.f_template_tarball = File(str(self._get_file_name(self.template_tarball_filename)))
         rc.add_replica(
             "local",
-            self._get_file_name(self.template_tarball_filename),
+            str(self._get_file_name(self.template_tarball_filename)),
             "file://{}".format(self.template_tarball_filename),
         )
         # Add the yaml files
-        self.f_running_configuration = File(self.running_configuration_filename)
+        self.f_running_configuration = File(str(self._get_file_name(self.running_configuration_filename)))
         rc.add_replica(
             "local",
-            self._get_file_name(self.running_configuration_filename),
+            str(self._get_file_name(self.running_configuration_filename)),
             "file://{}".format(self.running_configuration_filename),
         )
-        self.f_statistical_model_config = File(self.statistical_model_config_filename)
+        self.f_statistical_model_config = File(str(self._get_file_name(self.statistical_model_config_filename)))
         rc.add_replica(
             "local",
-            self._get_file_name(self.statistical_model_config_filename),
+            str(self._get_file_name(self.statistical_model_config_filename)),
             "file://{}".format(self.statistical_model_config_filename),
         )
         # Add run_toymc_wrapper
@@ -458,10 +458,10 @@ class SubmitterHTCondor(Submitter):
         args_dict["statistical_model_args"]["template_path"] = "templates/"
 
         toydata_filename = self._get_file_name(args_dict["toydata_filename"])
-        args_dict["toydata_filename"] = os.path.join("output_folder", toydata_filename)
+        args_dict["toydata_filename"] = toydata_filename
 
         output_filename = self._get_file_name(args_dict["output_filename"])
-        args_dict["output_filename"] = os.path.join("output_folder", output_filename)
+        args_dict["output_filename"] = output_filename
 
         return args_dict
 
