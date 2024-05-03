@@ -330,6 +330,12 @@ class SubmitterHTCondor(Submitter):
         return rc
 
     def _generate_workflow(self, name="alea-run_toymc"):
+        """
+        Generate the workflow.
+        1. Define catalogs
+        2. Generate jobs by iterating over the path-modified tickets
+        3. Add jobs to the workflow
+        """
         # Initialize the workflow
         self.wf = Workflow("alea-workflow")
         self.sc = self._generate_sc()
@@ -449,6 +455,9 @@ class SubmitterHTCondor(Submitter):
         return executable, args_dict
 
     def _correct_paths_args_dict(self, args_dict):
+        """
+        Correct the paths in the arguments dictionary in a hardcoding way.
+        """
         args_dict["statistical_model_args"]["template_path"] = "templates/"
 
         toydata_filename = self._get_file_name(args_dict["toydata_filename"])
@@ -497,6 +506,9 @@ class SubmitterHTCondor(Submitter):
         return args_dict
 
     def _get_file_name(self, file_path):
+        """
+        Get the filename from the file path.
+        """
         return os.path.basename(file_path)
     
     def _us_sites_only(self):
