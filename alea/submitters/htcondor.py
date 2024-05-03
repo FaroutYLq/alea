@@ -62,6 +62,7 @@ class SubmitterHTCondor(Submitter):
         # Pegasus workflow directory
         self.wf_dir = os.path.join(self.runs_dir, self._wf_id)
 
+        super().__init__(*args, **kwargs)
 
     def _validate_template_path(self):
         """Validate the template path."""
@@ -293,34 +294,34 @@ class SubmitterHTCondor(Submitter):
         rc = ReplicaCatalog()
 
         # Add the templates
-        self.template_tarball = File(self.template_tarball_filename)
+        self.f_template_tarball = File(self.template_tarball_filename)
         rc.add_replica(
             "local",
             self.template_tarball_filename,
             "file://{}".format(self.template_tarball_filename),
         )
         # Add the yaml files
-        self.running_configuration = File(self.running_configuration_filename)
+        self.f_running_configuration = File(self.running_configuration_filename)
         rc.add_replica(
             "local",
             self.running_configuration_filename,
             "file://{}".format(self.running_configuration_filename),
         )
-        self.statistical_model_config = File(self.statistical_model_config_filename)
+        self.f_statistical_model_config = File(self.statistical_model_config_filename)
         rc.add_replica(
             "local",
             self.statistical_model_config_filename,
             "file://{}".format(self.statistical_model_config_filename),
         )
         # Add run_toymc_wrapper
-        self.run_toymc_wrapper = File("run_toymc_wrapper.sh")
+        self.f_run_toymc_wrapper = File("run_toymc_wrapper.sh")
         rc.add_replica(
             "local",
             "run_toymc_wrapper.sh",
             "file://{}".format(self.top_dir / "alea/submitters/run_toymc_wrapper.sh"),
         )
         # Add alea-run_toymc
-        self.alea_run_toymc = File("alea-run_toymc")
+        self.f_alea_run_toymc = File("alea-run_toymc")
         rc.add_replica(
             "local",
             "alea-run_toymc",
@@ -363,11 +364,11 @@ class SubmitterHTCondor(Submitter):
             
             # Add the inputs and outputs
             job.add_inputs(
-                self.template_tarball, 
-                self.running_configuration, 
-                self.statistical_model_config, 
-                self.run_toymc_wrapper, 
-                self.alea_run_toymc
+                self.f_template_tarball, 
+                self.f_running_configuration, 
+                self.f_statistical_model_config, 
+                self.f_run_toymc_wrapper, 
+                self.f_alea_run_toymc
             )
             job.add_outputs(File(args_dict["output_filename"]), stage_out=True)
             job.add_outputs(File(args_dict['toydata_filename']), stage_out=True)
@@ -496,7 +497,7 @@ class SubmitterHTCondor(Submitter):
 
         return args_dict
 
-    def _get_file_name(file_path):
+    def _get_file_name(self, file_path):
         return os.path.basename(file_path)
     
     def _us_sites_only(self):
@@ -534,7 +535,10 @@ class SubmitterHTCondor(Submitter):
         self._check_workflow_exists()
 
         #  0o755 means read/write/execute for owner, read/execute for everyone else
-        os.makedirs(self._generated_dir(), 0o755)
+        try:
+            os.makedirs(self._generated_dir(), 0o755)
+        except FileExistsError:
+            logger.error(f"Workflow directory {self._generated_dir()} already exists. Exiting.")
         os.makedirs(self.runs_dir, 0o755, exist_ok=True)
         
         self._generate_workflow()
