@@ -33,7 +33,6 @@ class SubmitterHTCondor(Submitter):
         self.work_dir = WORK_DIR
         self.runs_dir = os.path.join(self.work_dir, "runs")
         self.top_dir = TOP_DIR
-        self.debug = kwargs.get("debug", False)
 
         # User can provide a name for the workflow, otherwise it will be the current time
         self._setup_wf_id() 
@@ -379,7 +378,7 @@ class SubmitterHTCondor(Submitter):
             job.add_args(*args_tuple)
             
             # Add the job to the workflow
-            self.wf.add_job(job)
+            self.wf.add_jobs(job)
 
         # Finalize the workflow
         os.chdir(self._generated_dir())
