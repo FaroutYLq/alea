@@ -56,7 +56,7 @@ class SubmitterHTCondor(Submitter):
         self.dagman_maxjobs = self.htcondor_configurations.pop("dagman_maxjobs", 100000)
 
         # Pegasus configurations
-        self._pegasus_properties()
+        self._make_pegasus_config()
 
         # Pegasus workflow directory
         self.wf_dir = os.path.join(self.runs_dir, self._wf_id)
@@ -537,6 +537,7 @@ class SubmitterHTCondor(Submitter):
             output_sites=["local"],
             dir=os.path.dirname(self.wf_dir),
             relative_dir=self._wf_id,
+            **self.pegasus_config
         )
 
         print(f"Worfklow written to \n\n\t{self.wf_dir}\n\n")
