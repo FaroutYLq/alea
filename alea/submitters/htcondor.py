@@ -53,8 +53,8 @@ class SubmitterHTCondor(Submitter):
 
         # Resources configurations
         self.request_cpus = self.htcondor_configurations.pop("request_cpus", 1)
-        self.request_memory = self.htcondor_configurations.pop("request_memory", "2 GB")
-        self.request_disk = self.htcondor_configurations.pop("request_disk", "2 GB")
+        self.request_memory = self.htcondor_configurations.pop("request_memory", 2000)
+        self.request_disk = self.htcondor_configurations.pop("request_disk", 2000000)
 
         # Dagman configurations
         self.dagman_maxidle = self.htcondor_configurations.pop("dagman_maxidle", 100000)
