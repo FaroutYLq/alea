@@ -557,6 +557,7 @@ class SubmitterHTCondor(Submitter):
     def submit(self, **kwargs):
         """Serve as the main function to submit the workflow."""
         self._check_workflow_exists()
+        self._validate_x509_proxy()
 
         #  0o755 means read/write/execute for owner, read/execute for everyone else
         try:
