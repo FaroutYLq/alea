@@ -64,6 +64,20 @@ class SubmitterHTCondor(Submitter):
         self.wf_dir = os.path.join(self.runs_dir, self._wf_id)
 
         super().__init__(*args, **kwargs)
+    
+    def _validate_x509_proxy(self, min_valid_hours=20):
+        """Ensure $HOME/user_cert exists and has enough time left.
+        This is necessary only if you are going to use Rucio.
+        """
+        logger.debug("Verifying that the ~/user_cert proxy has enough lifetime")
+        shell = Shell("grid-proxy-info -timeleft -file ~/user_cert")
+        shell.run()
+        valid_hours = int(shell.get_outerr()) / 60 / 60
+        if valid_hours < min_valid_hours:
+            raise RuntimeError(
+                "User proxy is only valid for %d hours. Minimum required is %d hours."
+                % (valid_hours, min_valid_hours)
+            )
 
     def _validate_template_path(self):
         """Validate the template path."""
@@ -221,6 +235,7 @@ class SubmitterHTCondor(Submitter):
             LD_LIBRARY_PATH="/cvmfs/xenon.opensciencegrid.org/releases/nT/development/anaconda/envs/XENONnT_development/lib64:/cvmfs/xenon.opensciencegrid.org/releases/nT/development/anaconda/envs/XENONnT_development/lib",
         )
         local.add_profiles(Namespace.ENV, PEGASUS_SUBMITTING_USER=os.environ["USER"])
+        local.add_profiles(Namespace.ENV, X509_USER_PROXY=os.environ['HOME'] + '/user_cert')
 
         # Staging sites: for XENON it is physically at dCache in UChicago
         # You will be able to download results from there via gfal commands
@@ -254,6 +269,8 @@ class SubmitterHTCondor(Submitter):
         condorpool.add_profiles(Namespace.ENV, PERL5LIB="")
         condorpool.add_profiles(Namespace.ENV, LD_LIBRARY_PATH="")
         condorpool.add_profiles(Namespace.ENV, PEGASUS_SUBMITTING_USER=os.environ["USER"])
+        condorpool.add_profiles(Namespace.CONDOR, key='x509userproxy',
+                                value=os.environ['HOME'] + '/user_cert')
 
         # Add the sites to the SiteCatalog
         sc.add_sites(local, staging_davs, condorpool)
