@@ -605,6 +605,7 @@ class SubmitterHTCondor(Submitter):
         os.chdir(self._generated_dir())
         self.wf.plan(
             submit=not self.debug,
+            cleanup="none",
             sites=["condorpool"],
             verbose=3,
             staging_sites={"condorpool": "staging-davs"},
