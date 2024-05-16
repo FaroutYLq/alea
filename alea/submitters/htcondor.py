@@ -591,7 +591,7 @@ class SubmitterHTCondor(Submitter):
     
     def _add_limit_threshold(self):
         """Add the Neyman thresholds limit_threshold to the replica catalog."""
-        self.f_limit_threshold = File(str(self.limit_threshold_filename))
+        self.f_limit_threshold = File(str(self._get_file_name(self.limit_threshold_filename)))
         self.rc.add_replica(
             "local",
             str(self._get_file_name(self.limit_threshold_filename)),
