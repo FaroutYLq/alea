@@ -581,6 +581,7 @@ class SubmitterHTCondor(Submitter):
 
         # Add the limit_threshold to the replica catalog if not added
         if not self.added_limit_threshold and "limit_threshold" in args_dict["statistical_model_args"].keys():
+            self.limit_threshold_filename = args_dict["statistical_model_args"]["limit_threshold"]
             self._add_limit_threshold()
 
         # Correct the paths in the arguments
@@ -590,11 +591,11 @@ class SubmitterHTCondor(Submitter):
     
     def _add_limit_threshold(self):
         """Add the Neyman thresholds limit_threshold to the replica catalog."""
-        self.f_limit_threshold = File(str(self._get_file_name(self.statistical_model_config_filename)))
+        self.f_limit_threshold = File(str(self.limit_threshold_filename))
         self.rc.add_replica(
             "local",
-            str(self._get_file_name(self.statistical_model_config_filename)),
-            "file://{}".format(self.statistical_model_config_filename),
+            str(self._get_file_name(self.limit_threshold_filename)),
+            "file://{}".format(self.limit_threshold_filename),
         )
         self.added_limit_threshold = True
 
