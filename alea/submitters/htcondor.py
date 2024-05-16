@@ -381,6 +381,15 @@ class SubmitterHTCondor(Submitter):
         """
         rc = ReplicaCatalog()
 
+        # Add Neyman thresholds if necessary
+        if "limit_threshold" in self.statistical_model_config_filename:
+            self.f_limit_threshold = File(str(self._get_file_name(self.statistical_model_config_filename)))
+            rc.add_replica(
+                "local",
+                str(self._get_file_name(self.statistical_model_config_filename)),
+                "file://{}".format(self.statistical_model_config_filename),
+            )
+
         # Add the templates
         self.f_template_tarball = File(str(self._get_file_name(self.template_tarball_filename)))
         rc.add_replica(
