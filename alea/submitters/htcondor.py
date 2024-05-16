@@ -591,7 +591,7 @@ class SubmitterHTCondor(Submitter):
         args_dict["statistical_model_args"]["template_path"] = "templates/"
         
         if "limit_threshold" in args_dict["statistical_model_args"].keys():
-            limit_threshold_filename = self._get_file_name(args_dict["limit_threshold"])
+            limit_threshold_filename = self._get_file_name(args_dict["statistical_model_args"]["limit_threshold"])
             args_dict["statistical_model_args"]["limit_threshold"] = limit_threshold_filename
 
         toydata_filename = self._get_file_name(args_dict["toydata_filename"])
