@@ -562,8 +562,9 @@ class SubmitterHTCondor(Submitter):
             if self.added_limit_threshold:
                 job.add_inputs(self.f_limit_threshold)
 
-            job.add_outputs(File(args_dict["output_filename"]), stage_out=False)
-            combine_job.add_inputs(File(args_dict["output_filename"]))
+            if not eval(args_dict["only_toydata"]):
+                job.add_outputs(File(args_dict["output_filename"]), stage_out=False)
+                combine_job.add_inputs(File(args_dict["output_filename"]))
 
             # Only add the toydata file if instructed to do so
             if args_dict["toydata_mode"] == "generate_and_store":
