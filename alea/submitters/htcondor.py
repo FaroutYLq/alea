@@ -569,6 +569,8 @@ class SubmitterHTCondor(Submitter):
             if args_dict["toydata_mode"] == "generate_and_store":
                 job.add_outputs(File(args_dict["toydata_filename"]), stage_out=False)
                 combine_job.add_inputs(File(args_dict["toydata_filename"]))
+            elif args_dict["toydata_mode"] == "read":
+                job.add_inputs(File(args_dict["toydata_filename"]))
 
             # Add the arguments into the job
             # Using escaped argument to avoid the shell syntax error
