@@ -33,6 +33,7 @@ from datetime import datetime
 DEFAULT_IMAGE = "/cvmfs/singularity.opensciencegrid.org/xenonnt/base-environment:latest"
 WORK_DIR = f"/scratch/{getpass.getuser()}/workflows"
 TOP_DIR = Path(__file__).resolve().parent.parent.parent
+ALLOWED_TOYDATA_MODES = ["generate_and_store", "generate", "read"]
 
 
 # Set up logging
@@ -529,9 +530,9 @@ class SubmitterHTCondor(Submitter):
             # Reorganize the script to get the executable and arguments,
             # in which the paths are corrected
             executable, args_dict = self._reorganize_script(_script)
-            if not (args_dict["toydata_mode"] in ["generate_and_store", "generate", "read"]):
+            if not (args_dict["toydata_mode"] in ALLOWED_TOYDATA_MODES):
                 raise NotImplementedError(
-                    "toydata_mode must be either 'generate_and_store', 'generate', or 'read'."
+                    "toydata_mode must be one of %s" % ", ".join(ALLOWED_TOYDATA_MODES)
                 )
 
             logger.info(f"Adding job {jobid} to the workflow")
