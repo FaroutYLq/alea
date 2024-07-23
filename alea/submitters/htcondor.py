@@ -135,17 +135,34 @@ class SubmitterHTCondor(Submitter):
             )
 
     def _tar_h5_files(self, directory, output_filename="templates.tar.gz"):
-        """Tar all .h5 templates in the directory and its subdirectories into a tarball."""
+        """Tar all .h5 templates in the directory and its subdirectories into a tarball.
+
+        If the directory contains subdirectories, the .h5 files will be tarred into a single tarball.
+        If not, the .h5 files will be tarred into a single tarball.
+        
+        Args:
+        directory (str): The path to the directory containing the .h5 files.
+        output_filename (str): The name of the tarball to be created.
+
+        """
         # Create a tar.gz archive
         with tarfile.open(output_filename, "w:gz") as tar:
-            # Walk through the directory
-            for dirpath, dirnames, filenames in os.walk(directory):
-                for filename in filenames:
+            # Check if the directory contains subdirectories
+            if self._contains_subdirectories(directory):
+                # Walk through the directory
+                for dirpath, dirnames, filenames in os.walk(directory):
+                    for filename in filenames:
+                        if filename.endswith(".h5"):
+                            # Get the full path to the file
+                            filepath = os.path.join(dirpath, filename)
+                            # Add the file to the tar
+                            # Specify the arcname to store relative path within the tar
+                            tar.add(filepath, arcname=os.path.basename(filename))
+            else:
+                # If the directory does not contain subdirectories
+                for filename in os.listdir(directory):
                     if filename.endswith(".h5"):
-                        # Get the full path to the file
-                        filepath = os.path.join(dirpath, filename)
-                        # Add the file to the tar
-                        # Specify the arcname to store relative path within the tar
+                        filepath = os.path.join(directory, filename)
                         tar.add(filepath, arcname=os.path.basename(filename))
 
     def _make_template_tarball(self):
@@ -512,9 +529,9 @@ class SubmitterHTCondor(Submitter):
             # Reorganize the script to get the executable and arguments,
             # in which the paths are corrected
             executable, args_dict = self._reorganize_script(_script)
-            if not (args_dict["toydata_mode"] in ["generate_and_store", "generate"]):
+            if not (args_dict["toydata_mode"] in ["generate_and_store", "generate", "read"]):
                 raise NotImplementedError(
-                    "Only generate_and_store toydata mode is supported on OSG."
+                    "toydata_mode must be either 'generate_and_store', 'generate', or 'read'."
                 )
 
             logger.info(f"Adding job {jobid} to the workflow")
