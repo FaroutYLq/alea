@@ -153,6 +153,11 @@ class SubmitterHTCondor(Submitter):
         self.template_tarball_filename = os.path.join(self._generated_dir(), "templates.tar.gz")
         self._tar_h5_files(self.template_path, self.template_tarball_filename)
 
+    def _make_toydata_tarball(self):
+        """Make tarball of the toydata if not exists."""
+        self.toydata_tarball_filename = os.path.join(self._generated_dir(), "toydata.tar.gz")
+        self._tar_h5_files(self.toydata_path, self.toydata_tarball_filename)
+
     def _modify_yaml(self):
         """Modify the statistical model config file to correct the 'template_filename' fields.
 
